@@ -1,2 +1,4 @@
-include 'obfuscator'
-include 'annotations'
+rootProject.name = "native-obfuscator"
+
+include "annotations"
+include "obfuscator"

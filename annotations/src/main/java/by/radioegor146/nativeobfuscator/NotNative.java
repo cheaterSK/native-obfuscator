@@ -10,5 +10,4 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.METHOD})
-public @interface NotNative {
-}
+public @interface NotNative {}

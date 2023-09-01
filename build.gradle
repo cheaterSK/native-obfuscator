@@ -1,15 +1,16 @@
-apply plugin: 'maven-publish'
+plugins {
+    id "java"
+}
 
 subprojects {
-    apply plugin: 'maven-publish'
+    apply plugin: "java"
 
-    publishing {
-        publications {
-            maven(MavenPublication) {
-                groupId project.group + ".nativeobfuscator"
-                artifactId project.name
-                version project.version
-            }
-        }
-    }
+    group = "by.radioegor146"
+    description = rootProject.name
+    version = "1.0.0"
+
+    buildDir = rootProject.file("build/${project.name}")
+    java.sourceCompatibility = JavaLanguageVersion.of(11)
+    java.targetCompatibility = JavaLanguageVersion.of(11)
+    compileJava.options.encoding = "UTF-8"
 }

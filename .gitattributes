@@ -1,26 +1,40 @@
 * text eol=lf
-*.bat text eol=crlf
-*.sh text eol=lf
-
-*.patch text eol=lf
-*.java text eol=lf
-*.scala text eol=lf
-*.groovy text eol=lf
-
-*.gradle text eol=crlf
-gradle.properties text eol=crlf
-/gradle/wrapper/gradle-wrapper.properties text eol=crlf
-*.cfg text eol=lf
-
-*.png binary
-*.jar binary
-*.war binary
-*.lzma binary
-*.zip binary
-*.gzip binary
-*.dll binary
-*.so binary
-*.exe binary
-
-*.gitattributes text eol=crlf
-*.gitignore text eol=crlf
+#
+# The above will handle all files NOT found below
+# https://help.github.com/articles/dealing-with-line-endings/
+# https://github.com/Danimoth/gitattributes
+# These are explicitly windows files and should use crlf
+*.bat           text eol=crlf
+# These files are text and should be normalized (Convert crlf => lf)
+*.bash          text eol=lf
+*.css           text diff=css
+*.htm           text diff=html
+*.html          text diff=html
+*.java          text diff=java
+*.sh            text eol=lf
+# These files are binary and should be left untouched
+# (binary is a macro for -text -diff)
+*.a             binary
+*.lib           binary
+*.icns          binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.mov           binary
+*.mp4           binary
+*.mp3           binary
+*.flv           binary
+*.fla           binary
+*.swf           binary
+*.gz            binary
+*.zip           binary
+*.jar           binary
+*.tar           binary
+*.tar.gz        binary
+*.7z            binary
+*.ttf           binary
+*.pyc           binary
+*.gpg           binary
+*.bin           binary

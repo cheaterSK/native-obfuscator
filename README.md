@@ -1,45 +1,21 @@
 # native-obfuscator
-Java .class to .cpp converter for use with JNI
+### DISCLAIMER: This is only an updated and automated fork, all credits for transpilation go to [radioegor146](https://github.com/radioegor146) <3
 
-Currently, supports only Java 8
+Java .class to .cpp converter for use with JNI
 
 Warning: blacklist/whitelist usage is recommended, because this tool slows down code significantly (like do not obfuscate full minecraft .jar)
 
 Also, this tool does not particulary obfuscates your code, it just transpiles it to native. Remember to use protectors like VMProtect, Themida or obfuscator-llvm (in case of clang usage)
 
 ---
-
 ### To run this tool you need to have this installed:
-1. JDK 8
-
+1. JDK 11
     - For Windows:
-        
-        I recommend downloading Oracle JDK 8, though you need to have some login credentials on Oracle.
+        I recommend downloading Eclipse Temurin, download [here](https://adoptium.net/temurin/releases/?variant=openjdk11&os=windows&arch=x64&package=jdk).
     - For Linux/MacOS:
-    
-        Google "your distro install jdk 8", and install required packages
-2. CMake
-   
-    - For Windows:
-     
-        Download latest release from https://cmake.org/download/
-    
-    - For Linux/MacOS:
-    
-        As well, google "your distro install cmake", and install required package (default - `apt/yum/brew install cmake`)
-3. C++/C compiler toolchain
-
-    - For Windows:
-    
-        Download free version of MSVS: https://visualstudio.microsoft.com/ru/
-        and select Visual C++ compiler in opt-ins
-      
-        Or install mingw, if you had any experience with this
-     
-    - For Linux/MacOS:
-        
-        Google "your distro install g++"
-      
+        Google "your distro install jdk 8", and install required packages, though I recommend using [SDKMAN](https://sdkman.io/) for this.
+2. Zig
+    - This should be included next to the .jar, link to download [here](https://ziglang.org/download/).
 ---
 
 ### General usage:
@@ -120,33 +96,14 @@ mypackage/myotherpackage/Class*
 
 `**` matches all entries in class/package name
 
-
-`--plain-lib-name` - if you ship your .jar in separate from result native libraries, or you use it for Android, you can specify the name of native library that it will try to search while using.
-
-If you want to ship your .jar with native libraries in it, you should omit that argument, and after building native files add them in form of
-```
-x64-windows.dll
-x64-linux.so
-x86-windows.dll
-x64-macos.dylib
-arm64-linux.so
-arm64-windows.dll
-```
-to the directory of .jar file that this tool will print in `stdout` (by default `native0/`)
-
 #### Basic usage:
-1. Transpile your code using `java -jar native-obfuscator.jar <input jar> <output directory>`
-2. Run `cmake .` in result `cpp` directory
-3. Add changes to .cpp code if necessary
-4. Run `cmake --build . --config Release` in result `cpp` directory to build .so/.dll file
-5. Copy result .dll/.so from `build/libs/` to the specified in previous paragraph path.
-6. Run created .jar `java -jar <output jar>` and enjoy!
+// todo
 
 ---
 
 ### Building the tool by yourself
-1. Run `gradlew assemble` to force gradle to not run tests after build
+1. Run `./gradlew shadowJar`
 
 ---
 
-In case of any problems feel free to open issue or contact me at https://1488.me
+In case of any problems feel free to open an issue.
