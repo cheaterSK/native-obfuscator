@@ -13,7 +13,7 @@ public class MainSourceBuilder {
     }
 
     public void addHeader(String hppFilename) {
-        includes.append(String.format("#include \"output/%s\"\n", hppFilename));
+        includes.append(String.format("#include \"%s\"\n", hppFilename));
     }
 
     public void registerClassMethods(int classId, String escapedClassName) {

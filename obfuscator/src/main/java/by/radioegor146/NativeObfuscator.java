@@ -1,7 +1,6 @@
 package by.radioegor146;
 
 import by.radioegor146.bytecode.Preprocessor;
-import by.radioegor146.source.CMakeFilesBuilder;
 import by.radioegor146.source.ClassSourceBuilder;
 import by.radioegor146.source.MainSourceBuilder;
 import by.radioegor146.source.StringPool;
@@ -108,8 +107,7 @@ public class NativeObfuscator {
         }).collect(Collectors.toList()));
 
         Path cppDir = outputDir.resolve("cpp");
-        Path cppOutput = cppDir.resolve("output");
-        Files.createDirectories(cppOutput);
+        Files.createDirectories(cppDir);
 
         Util.copyResource("sources/native_jvm.cpp", cppDir);
         Util.copyResource("sources/native_jvm.hpp", cppDir);
@@ -117,14 +115,6 @@ public class NativeObfuscator {
         Util.copyResource("sources/string_pool.hpp", cppDir);
 
         String projectName = "native_library";
-
-        CMakeFilesBuilder cMakeBuilder = new CMakeFilesBuilder(projectName);
-        cMakeBuilder.addMainFile("native_jvm.hpp");
-        cMakeBuilder.addMainFile("native_jvm.cpp");
-        cMakeBuilder.addMainFile("native_jvm_output.hpp");
-        cMakeBuilder.addMainFile("native_jvm_output.cpp");
-        cMakeBuilder.addMainFile("string_pool.hpp");
-        cMakeBuilder.addMainFile("string_pool.cpp");
 
         MainSourceBuilder mainSourceBuilder = new MainSourceBuilder();
 
@@ -228,7 +218,7 @@ public class NativeObfuscator {
                     cachedFields.clear();
 
                     try (ClassSourceBuilder cppBuilder =
-                                 new ClassSourceBuilder(cppOutput, classNode.name, classIndexReference[0]++, stringPool)) {
+                                 new ClassSourceBuilder(cppDir, classNode.name, classIndexReference[0]++, stringPool)) {
                         StringBuilder instructions = new StringBuilder();
 
                         for (int i = 0; i < classNode.methods.size(); i++) {
@@ -271,9 +261,6 @@ public class NativeObfuscator {
                         cppBuilder.addInstructions(instructions.toString());
                         cppBuilder.registerMethods(cachedStrings, cachedClasses, nativeMethods.toString(), hiddenMethods);
 
-                        cMakeBuilder.addClassFile("output/" + cppBuilder.getHppFilename());
-                        cMakeBuilder.addClassFile("output/" + cppBuilder.getCppFilename());
-
                         mainSourceBuilder.addHeader(cppBuilder.getHppFilename());
                         mainSourceBuilder.registerClassMethods(currentClassId, cppBuilder.getFilename());
                     }
@@ -286,9 +273,6 @@ public class NativeObfuscator {
 
             for (ClassNode hiddenClass : hiddenMethodsPool.getClasses()) {
                 String hiddenClassFileName = "data_" + Util.escapeCppNameString(hiddenClass.name.replace('/', '_'));
-
-                cMakeBuilder.addClassFile("output/" + hiddenClassFileName + ".hpp");
-                cMakeBuilder.addClassFile("output/" + hiddenClassFileName + ".cpp");
 
                 mainSourceBuilder.addHeader(hiddenClassFileName + ".hpp");
                 mainSourceBuilder.registerDefine(stringPool.get(hiddenClass.name), hiddenClassFileName);
@@ -305,8 +289,8 @@ public class NativeObfuscator {
                     Util.writeEntry(debug, hiddenClass.name + ".class", rawData);
                 }
 
-                try (BufferedWriter hppWriter = Files.newBufferedWriter(cppOutput.resolve(hiddenClassFileName + ".hpp"))) {
-                    hppWriter.append("#include \"../native_jvm.hpp\"\n\n");
+                try (BufferedWriter hppWriter = Files.newBufferedWriter(cppDir.resolve(hiddenClassFileName + ".hpp"))) {
+                    hppWriter.append("#include \"native_jvm.hpp\"\n\n");
                     hppWriter.append("#ifndef ").append(hiddenClassFileName.toUpperCase()).append("_HPP_GUARD\n\n");
                     hppWriter.append("#define ").append(hiddenClassFileName.toUpperCase()).append("_HPP_GUARD\n\n");
                     hppWriter.append("namespace native_jvm::data::__ngen_").append(hiddenClassFileName).append(" {\n");
@@ -316,7 +300,7 @@ public class NativeObfuscator {
                     hppWriter.append("#endif\n");
                 }
 
-                try (BufferedWriter cppWriter = Files.newBufferedWriter(cppOutput.resolve(hiddenClassFileName + ".cpp"))) {
+                try (BufferedWriter cppWriter = Files.newBufferedWriter(cppDir.resolve(hiddenClassFileName + ".cpp"))) {
                     cppWriter.append("#include \"").append(hiddenClassFileName).append(".hpp\"\n\n");
                     cppWriter.append("namespace native_jvm::data::__ngen_").append(hiddenClassFileName).append(" {\n");
                     cppWriter.append("    static const jbyte class_data[").append(String.valueOf(data.size())).append("] = { ");
@@ -384,8 +368,6 @@ public class NativeObfuscator {
 
         Files.write(cppDir.resolve("native_jvm_output.cpp"), mainSourceBuilder.build(nativeDir, currentClassId)
                 .getBytes(StandardCharsets.UTF_8));
-
-        Files.write(cppDir.resolve("CMakeLists.txt"), cMakeBuilder.build().getBytes(StandardCharsets.UTF_8));
     }
 
     public Snippets getSnippets() {

@@ -1,7 +1,6 @@
 package by.radioegor146.source;
 
 import by.radioegor146.HiddenCppMethod;
-import by.radioegor146.HiddenMethodsPool;
 import by.radioegor146.NodeCache;
 import by.radioegor146.Util;
 import org.objectweb.asm.tree.ClassNode;
@@ -39,8 +38,8 @@ public class ClassSourceBuilder implements AutoCloseable {
     }
 
     public void addHeader(int strings, int classes, int methods, int fields) throws IOException {
-        cppWriter.append("#include \"../native_jvm.hpp\"\n");
-        cppWriter.append("#include \"../string_pool.hpp\"\n");
+        cppWriter.append("#include \"native_jvm.hpp\"\n");
+        cppWriter.append("#include \"string_pool.hpp\"\n");
         cppWriter.append("#include \"").append(getHppFilename()).append("\"\n");
         cppWriter.append("\n");
         cppWriter.append("// ").append(Util.escapeCommentString(className)).append("\n");
@@ -65,7 +64,7 @@ public class ClassSourceBuilder implements AutoCloseable {
         cppWriter.append("    ");
 
 
-        hppWriter.append("#include \"../native_jvm.hpp\"\n");
+        hppWriter.append("#include \"native_jvm.hpp\"\n");
         hppWriter.append("\n");
         hppWriter.append("#ifndef ").append(filename.concat("_hpp").toUpperCase()).append("_GUARD\n");
         hppWriter.append("\n");
