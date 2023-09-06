@@ -24,9 +24,6 @@ public class Main {
         @CommandLine.Parameters(index = "0", description = "Jar file to transpile")
         private File jarFile;
 
-        @CommandLine.Parameters(index = "1", description = "Output directory")
-        private String outputDirectory;
-
         @CommandLine.Option(names = {"-l", "--libraries"}, description = "Directory for dependent libraries")
         private File librariesDirectory;
 
@@ -68,7 +65,7 @@ public class Main {
                 whiteList = Files.readAllLines(whiteListFile.toPath(), StandardCharsets.UTF_8);
             }
 
-            new NativeObfuscator().process(jarFile.toPath(), Paths.get(outputDirectory),
+            new NativeObfuscator().process(jarFile.toPath(), Paths.get("_work"),
                     libs, blackList, whiteList, libraryName, platform, useAnnotations, generateDebugJar);
 
             return 0;

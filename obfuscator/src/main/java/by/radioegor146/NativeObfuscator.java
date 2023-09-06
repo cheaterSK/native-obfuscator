@@ -4,6 +4,12 @@ import by.radioegor146.bytecode.Preprocessor;
 import by.radioegor146.source.ClassSourceBuilder;
 import by.radioegor146.source.MainSourceBuilder;
 import by.radioegor146.source.StringPool;
+import net.lingala.zip4j.ZipFile;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -19,6 +25,10 @@ import ru.gravit.launchserver.asm.ClassMetadataReader;
 import ru.gravit.launchserver.asm.SafeClassWriter;
 
 import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +46,8 @@ import java.util.zip.ZipOutputStream;
 public class NativeObfuscator {
 
     private static final Logger logger = LoggerFactory.getLogger(NativeObfuscator.class);
+
+    private static final HttpClient httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
 
     private final Snippets snippets;
     private final StringPool stringPool;
@@ -94,7 +106,7 @@ public class NativeObfuscator {
 
     public void process(Path inputJarPath, Path outputDir, List<Path> inputLibs,
                         List<String> blackList, List<String> whiteList, String plainLibName,
-                        Platform platform, boolean useAnnotations, boolean generateDebugJar) throws IOException {
+                        Platform platform, boolean useAnnotations, boolean generateDebugJar) throws Exception {
         List<Path> libs = new ArrayList<>(inputLibs);
         libs.add(inputJarPath);
         ClassMethodFilter classMethodFilter = new ClassMethodFilter(ClassMethodList.parse(blackList), ClassMethodList.parse(whiteList), useAnnotations);
@@ -113,14 +125,13 @@ public class NativeObfuscator {
         Util.copyResource("sources/native_jvm.hpp", cppDir);
         Util.copyResource("sources/native_jvm_output.hpp", cppDir);
         Util.copyResource("sources/string_pool.hpp", cppDir);
-
-        String projectName = "native_library";
+        Util.copyResource("sources/build.zig", outputDir);
 
         MainSourceBuilder mainSourceBuilder = new MainSourceBuilder();
 
         File jarFile = inputJarPath.toAbsolutePath().toFile();
         try (JarFile jar = new JarFile(jarFile);
-             ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(outputDir.resolve(jarFile.getName())));
+             ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(inputJarPath.resolveSibling(jarFile.getName().replace(".jar", "") + "-obf.jar")));
              ZipOutputStream debug = generateDebugJar ? new ZipOutputStream(
                      Files.newOutputStream(outputDir.resolve("debug.jar"))) : null) {
 
@@ -353,8 +364,6 @@ public class NativeObfuscator {
             ClassWriter classWriter = new SafeClassWriter(metadataReader, Opcodes.ASM7 | ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
             resultLoaderClass.accept(classWriter);
             Util.writeEntry(out, loaderClassName + ".class", classWriter.toByteArray());
-
-            logger.info("Jar file ready!");
             Manifest mf = jar.getManifest();
             if (mf != null) {
                 out.putNextEntry(new ZipEntry(JarFile.MANIFEST_NAME));
@@ -368,6 +377,68 @@ public class NativeObfuscator {
 
         Files.write(cppDir.resolve("native_jvm_output.cpp"), mainSourceBuilder.build(nativeDir, currentClassId)
                 .getBytes(StandardCharsets.UTF_8));
+
+        compile(outputDir);
+
+        logger.info("Jar file ready!");
+    }
+
+    private void compile(Path outputDir) throws Exception {
+        logger.info("Searching for Zig...");
+        Path cwdPath = Path.of(System.getProperty("user.dir"));
+        Path zigPath = null;
+
+        for (Path p : Files.walk(cwdPath, 2).collect(Collectors.toList())) {
+            if (p.getFileName().toString().equals("zig.exe") || p.getFileName().toString().equals("zig")) {
+                logger.info("Found Zig at {}", p);
+                zigPath = outputDir.toAbsolutePath().relativize(p.toAbsolutePath());
+
+                break;
+            }
+        }
+
+        if (zigPath == null) {
+            String downloadName = String.format("zig-%s-%s-0.12.0-dev.281+d1a14e7b6.%s", SystemUtils.OS_NAME.toLowerCase(), SystemUtils.OS_ARCH.replace("amd64", "x86_64"), SystemUtils.IS_OS_WINDOWS ? "zip" : "tar.xz");
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://ziglang.org/builds/" + downloadName))
+                    .GET()
+                    .build();
+
+            logger.info("Downloading Zig from " + request.uri().toString());
+            Path zigArchive = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(cwdPath.resolve(downloadName))).body();
+            logger.info("Extracting Zig...");
+            if (zigArchive.getFileName().toString().endsWith(".zip")) {
+                try (ZipFile zipFile = new ZipFile(zigArchive.toFile())) {
+                    zipFile.extractAll(cwdPath.toString());
+                }
+
+                zigPath = cwdPath.resolve(zigArchive.getFileName().toString().replace(".zip", "")).resolve("zig.exe");
+            } else {
+                try (TarArchiveInputStream tarIn = new TarArchiveInputStream(new XZCompressorInputStream(new FileInputStream(zigArchive.toFile())))) {
+                    TarArchiveEntry entry;
+                    while ((entry = tarIn.getNextTarEntry()) != null) {
+                        if (entry.isDirectory()) {
+                            Files.createDirectories(cwdPath.resolve(entry.getName()));
+                        } else {
+                            Files.write(cwdPath.resolve(entry.getName()), tarIn.readAllBytes());
+                        }
+                    }
+                }
+
+                zigPath = cwdPath.resolve(zigArchive.getFileName().toString().replace(".tar.xz", "")).resolve("zig");
+            }
+        }
+
+        logger.info("Starting compiler...");
+        ProcessBuilder process = new ProcessBuilder(zigPath.toString(), "build");
+        logger.info("Running Zig: [{}]", String.join(" ", process.command()));
+        process.directory(outputDir.toFile());
+        process.inheritIO();
+        process.start().waitFor();
+
+        logger.info("Cleaning up...");
+        FileUtils.deleteDirectory(outputDir.toFile());
     }
 
     public Snippets getSnippets() {
