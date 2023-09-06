@@ -1,5 +1,6 @@
 package by.radioegor146;
 
+import org.apache.commons.io.FileUtils;
 import picocli.CommandLine;
 
 import java.io.File;
@@ -8,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -65,8 +65,13 @@ public class Main {
                 whiteList = Files.readAllLines(whiteListFile.toPath(), StandardCharsets.UTF_8);
             }
 
-            new NativeObfuscator().process(jarFile.toPath(), Paths.get("_work"),
-                    libs, blackList, whiteList, libraryName, platform, useAnnotations, generateDebugJar);
+            NativeObfuscator obfuscator = new NativeObfuscator();
+            Path outputDir = Path.of("_work");
+            obfuscator.transpile(jarFile.toPath(), outputDir, libs, blackList, whiteList, libraryName, platform, useAnnotations, generateDebugJar);
+            obfuscator.compile(outputDir);
+            obfuscator.assemble(jarFile.toPath(), outputDir);
+
+            FileUtils.deleteDirectory(outputDir.toFile());
 
             return 0;
         }

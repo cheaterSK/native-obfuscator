@@ -10,27 +10,7 @@ public class LoaderUnpack {
 
     static {
         String osName = System.getProperty("os.name").toLowerCase();
-        String platform = System.getProperty("os.arch").toLowerCase();
-
-        String platformTypeName;
-        switch (platform) {
-            case "x86_64":
-            case "amd64":
-                platformTypeName = "x64";
-                break;
-            case "aarch64":
-                platformTypeName = "arm64";
-                break;
-            case "arm":
-                platformTypeName = "arm32";
-                break;
-            case "x86":
-                platformTypeName = "x86";
-                break;
-            default:
-                platformTypeName = "raw" + platform;
-                break;
-        }
+        String arch = System.getProperty("os.arch").toLowerCase().replace("amd64", "x86_64");
 
         String osTypeName;
         if (osName.contains("nix") || osName.contains("nux") || osName.contains("aix")) {
@@ -43,7 +23,7 @@ public class LoaderUnpack {
             osTypeName = "raw" + osName;
         }
 
-        String libFileName = String.format("/%s/%s-%s", LoaderUnpack.class.getName().split("\\.")[0], platformTypeName, osTypeName);
+        String libFileName = String.format("/%s/%s-%s", LoaderUnpack.class.getName().split("\\.")[0], arch, osTypeName);
 
         File libFile;
         try {

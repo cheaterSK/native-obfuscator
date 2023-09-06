@@ -8,7 +8,6 @@ import net.lingala.zip4j.ZipFile;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -104,9 +103,9 @@ public class NativeObfuscator {
         methodProcessor = new MethodProcessor(this);
     }
 
-    public void process(Path inputJarPath, Path outputDir, List<Path> inputLibs,
-                        List<String> blackList, List<String> whiteList, String plainLibName,
-                        Platform platform, boolean useAnnotations, boolean generateDebugJar) throws Exception {
+    public void transpile(Path inputJarPath, Path outputDir, List<Path> inputLibs,
+                          List<String> blackList, List<String> whiteList, String plainLibName,
+                          Platform platform, boolean useAnnotations, boolean generateDebugJar) throws Exception {
         List<Path> libs = new ArrayList<>(inputLibs);
         libs.add(inputJarPath);
         ClassMethodFilter classMethodFilter = new ClassMethodFilter(ClassMethodList.parse(blackList), ClassMethodList.parse(whiteList), useAnnotations);
@@ -377,13 +376,9 @@ public class NativeObfuscator {
 
         Files.write(cppDir.resolve("native_jvm_output.cpp"), mainSourceBuilder.build(nativeDir, currentClassId)
                 .getBytes(StandardCharsets.UTF_8));
-
-        compile(outputDir);
-
-        logger.info("Jar file ready!");
     }
 
-    private void compile(Path outputDir) throws Exception {
+    public void compile(Path outputDir) throws Exception {
         logger.info("Searching for Zig...");
         Path cwdPath = Path.of(System.getProperty("user.dir"));
         Path zigPath = null;
@@ -391,7 +386,7 @@ public class NativeObfuscator {
         for (Path p : Files.walk(cwdPath, 2).collect(Collectors.toList())) {
             if (p.getFileName().toString().equals("zig.exe") || p.getFileName().toString().equals("zig")) {
                 logger.info("Found Zig at {}", p);
-                zigPath = outputDir.toAbsolutePath().relativize(p.toAbsolutePath());
+                zigPath = p.toAbsolutePath();
 
                 break;
             }
@@ -400,13 +395,13 @@ public class NativeObfuscator {
         if (zigPath == null) {
             String downloadName = String.format("zig-%s-%s-0.12.0-dev.281+d1a14e7b6.%s", SystemUtils.OS_NAME.toLowerCase(), SystemUtils.OS_ARCH.replace("amd64", "x86_64"), SystemUtils.IS_OS_WINDOWS ? "zip" : "tar.xz");
 
+            logger.info("Downloading Zig version " + downloadName + "...");
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://ziglang.org/builds/" + downloadName))
                     .GET()
                     .build();
-
-            logger.info("Downloading Zig from " + request.uri().toString());
             Path zigArchive = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(cwdPath.resolve(downloadName))).body();
+
             logger.info("Extracting Zig...");
             if (zigArchive.getFileName().toString().endsWith(".zip")) {
                 try (ZipFile zipFile = new ZipFile(zigArchive.toFile())) {
@@ -428,7 +423,11 @@ public class NativeObfuscator {
 
                 zigPath = cwdPath.resolve(zigArchive.getFileName().toString().replace(".tar.xz", "")).resolve("zig");
             }
+
+            zigArchive.toFile().delete();
         }
+
+        Files.walk(zigPath.getParent()).forEach(p -> p.toFile().setExecutable(true));
 
         logger.info("Starting compiler...");
         ProcessBuilder process = new ProcessBuilder(zigPath.toString(), "build");
@@ -436,9 +435,13 @@ public class NativeObfuscator {
         process.directory(outputDir.toFile());
         process.inheritIO();
         process.start().waitFor();
+    }
 
-        logger.info("Cleaning up...");
-        FileUtils.deleteDirectory(outputDir.toFile());
+    public void assemble(Path inputJarPath, Path outputDir) throws Exception {
+        logger.info("Assembling jar...");
+        try (ZipFile zipFile = new ZipFile(inputJarPath.resolveSibling(inputJarPath.getFileName().toString().replace(".jar", "") + "-obf.jar").toFile())) {
+            zipFile.addFolder(outputDir.resolve("native0").toFile());
+        }
     }
 
     public Snippets getSnippets() {
