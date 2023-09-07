@@ -36,6 +36,7 @@ pub fn build(b: *std.build.Builder) !void {
             const target = std.zig.CrossTarget{
                 .cpu_arch = arch,
                 .os_tag = platform,
+                .abi = if (platform != .macos) .gnu else null
             };
 
             try buildLibrary(b, allocator, javaHome, target, optimize, &sources);
