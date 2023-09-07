@@ -1,6 +1,17 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const platforms = [_] std.Target.Os.Tag {
+    .linux,
+    .macos,
+    .windows,
+};
+
+const archs = [_] std.Target.Cpu.Arch {
+    .x86_64,
+    .aarch64,
+};
+
 pub fn build(b: *std.build.Builder) !void {
     const allocator = std.heap.page_allocator;
     const memory = try allocator.alloc(u8, 50);
@@ -19,10 +30,24 @@ pub fn build(b: *std.build.Builder) !void {
         }
     }
 
+    const optimize = b.standardOptimizeOption(.{});
+    for (platforms) |platform| {
+        for (archs) |arch| {
+            const target = std.zig.CrossTarget{
+                .cpu_arch = arch,
+                .os_tag = platform,
+            };
+
+            try buildLibrary(b, allocator, javaHome, target, optimize, &sources);
+        }
+    }
+}
+
+fn buildLibrary(b: *std.build.Builder, allocator: std.mem.Allocator, javaHome: []const u8, crossTarget: std.zig.CrossTarget, optimize: std.builtin.OptimizeMode, sources: *std.ArrayList([]const u8)) !void {
     const lib = b.addSharedLibrary(.{
-        .name = "native-obfuscator",
-        .target = b.standardTargetOptions(.{}),
-        .optimize = b.standardOptimizeOption(.{})
+        .name = "native0",
+        .target = crossTarget,
+        .optimize = optimize
     });
     lib.strip = true;
     lib.force_pic = true;
